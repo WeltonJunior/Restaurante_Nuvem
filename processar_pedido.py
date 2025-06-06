@@ -20,6 +20,13 @@ s3 = boto3.client(
     region_name='us-east-1'
 )
 bucket_name = 'bucketcomprovantes'
+sns = boto3.client(
+    'sns',
+    endpoint_url='http://10.255.255.254:4566',
+    aws_access_key_id='test',
+    aws_secret_access_key='test',
+    region_name='us-east-1'
+)
 
 def lambda_handler(event, context):
     print("Evento recebido:", json.dumps(event, indent=2))
@@ -27,8 +34,6 @@ def lambda_handler(event, context):
         for record in event.get('Records', []):
             pedido_id = record['body']
             print(f"Processando pedido ID: {pedido_id}")
-
-            time.sleep(5)
 
             # Buscar pedido no DynamoDB
             res = table.get_item(Key={'id': pedido_id})
@@ -65,9 +70,16 @@ def lambda_handler(event, context):
             )
             print(f"Status do pedido {pedido_id} atualizado para 'processado'.")
 
+            sns.publish(
+                TopicArn='arn:aws:sns:us-east-1:000000000000:PedidosConcluidos',
+                Subject='Pedido Pronto!',
+                Message=f'Novo pedido concluído: {pedido_id}'
+            )
+            print(f"Notificação SNS enviada para o pedido {pedido_id}")
+
         return {
             'statusCode': 200,
-            'body': json.dumps({'message': 'Processamento concludo'})
+            'body': json.dumps({'message': 'Processamento concluído'})
         }
 
     except Exception as e:
